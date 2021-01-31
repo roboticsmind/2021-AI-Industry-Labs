@@ -1,7 +1,9 @@
 import csv
 import functools  # reduce()
 import numpy as np
+import pickle
 
+# N.B. lines that are commented are considered in the dataset subset but are provided in the original dataset.
 
 coarselabel_map = {
    # 'null'  : 0,
@@ -42,13 +44,12 @@ channels_basic = {
     # [...]
 }
 
-
 def size_of_index(index:list) -> int:
     size = functools.reduce(lambda acc,portion: (portion[1]-portion[0])+acc, index, 0)
     return size
 
 
-def sample(indexes:dict) -> list:
+def sample(indexes:dict, student_id:int) -> list:
     """
     Given the index associated to each activity, this function generates
     a single index by selecting portions for each activity. This function
@@ -57,6 +58,8 @@ def sample(indexes:dict) -> list:
         - the portions have a sufficient number of adjacent segments;
         - the number of segments of each activity is balanced;
     """
+    np.random.seed(student_id)
+
     # 1. For each activity:
     #   a. filter portions according to their size, e.g. we do not want portions
     #      containing only 5 segments;
@@ -96,8 +99,8 @@ def extract_examples(sample_index:list, channel:str) -> None:
     # sort list in ascending order
     sample_index_sorted = sorted(sample_index, key=lambda tup: tup[0])
 
-    with open('Torso/'+channel+'.txt', 'r') as input_:
-        with open('./'+channel+'_sample.txt', 'w') as output_:
+    with open('./generated/tmp/train/Torso/'+channel+'.txt', 'r') as input_:
+        with open('./generated/sample/train/Torso/'+channel+'.txt', 'w') as output_:
             reader = csv.reader(input_)
             writer = csv.writer(output_)
 
@@ -109,7 +112,7 @@ def extract_examples(sample_index:list, channel:str) -> None:
                     if i > idx[1]:
                         idx = next(sample_index_iter)
 
-                    if idx[0]<i and i<idx[1]:
+                    if idx[0]<=i and i<idx[1]:
                         writer.writerow(row)
             except StopIteration:
                 pass
@@ -119,7 +122,7 @@ def index_of_activity(activity:str) -> list:
     """
     Example:
     ```python
-    idxs = activity_index('run')
+    idxs = index_of_activity('run')
     print('Portions of activity %s :'.format('run'))
     for index in idxs:
         print('%d: [%d; %d]'.format(index[0][0], index[0][1]))
@@ -128,7 +131,7 @@ def index_of_activity(activity:str) -> list:
     print('Constructing the index of {} ...'.format(activity))
     idxs=[]
     label_of_activity = coarselabel_map[activity]
-    with open('Torso/Label.txt') as labels:
+    with open('./generated/tmp/train/Torso/Label.txt') as labels:
         reader = csv.reader(labels, delimiter=' ')
 
         start = -1
@@ -146,29 +149,30 @@ def index_of_activity(activity:str) -> list:
     return idxs
 
 
-def main():
+def build_sample(student_id:int) -> dict:
     idxs = {}
-    for activity in ['still', 'run']:  # coarselabel_map:
+    for activity in coarselabel_map:
         idxs[activity] = index_of_activity(activity)
 
-    sample_idx = sample(idxs)
+    sample_idx = sample(idxs, student_id)
     print(sample_idx)
+    print('##############################')
+    print('Size of the sample: {}'.format(size_of_index(sample_idx)))
+    print('##############################')
 
     for _, channel in channels_basic.items():
         extract_examples(sample_idx, channel)
 
+    extract_examples(sample_idx, 'Label')
+
+    # return the used index
+    return idxs
+
+
+def save_index(idxs:dict, path:str) -> None:
+    with open(path, 'wb') as handle:
+        pickle.dump(idxs, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
 
 if __name__ == '__main__':
-    # activity = 'subway'
-    # print('Searching for portions of examples containing {} activity ...'.format(activity))
-    # idxs = activity_index(activity)
-    # print('Portions of activity {} :'.format(activity))
-    # print('portion#id portion#start portion#end size')
-    # for i, index in enumerate(idxs):
-    #     # print('portion #{}: [{}; {}] (size: {})'.format(i, index[0], index[1], index[1]-index[0]))
-    #     print('{} {} {} {}'.format(i, index[0], index[1], index[1]-index[0]))
-
-    # print('Extracting selected portions to a new file ...')
-    # extract_examples(idxs)
-
-    main()
+    build_sample()
