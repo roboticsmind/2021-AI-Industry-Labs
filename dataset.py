@@ -134,9 +134,9 @@ class DataReader(object):
 
     smartphone_positions = [
         'Torso',
-        'Hips',
-        'Bag',
-        'Hand'
+        # 'Hips',
+        # 'Bag',
+        # 'Hand'
     ]
 
     # files = [
